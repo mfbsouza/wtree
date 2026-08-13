@@ -1,0 +1,46 @@
+[project]
+name = "wtree"
+description = "A configuration-driven multi-repository git worktree orchestrator"
+requires-python = ">=3.11"
+license = "MIT"
+dynamic = ["version"]
+dependencies = [
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.12.0",
+    "pre-commit>=4.0.0",
+    "bump-my-version>=0.30.0",
+]
+
+[project.scripts]
+wtree = "wtree.main:cli"
+
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["wtree"]
+
+[tool.setuptools.dynamic]
+version = { attr = "wtree.__version__" }
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "wtree/__init__.py"

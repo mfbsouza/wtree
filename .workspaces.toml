@@ -1,0 +1,9 @@
+workspace_dir = "./.workspaces"
+
+[[repositories]]
+name = "frontend"
+path = "./repo-frontend"
+
+[[repositories]]
+name = "backend"
+path = "./repo-backend"

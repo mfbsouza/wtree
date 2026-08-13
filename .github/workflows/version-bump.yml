@@ -1,0 +1,48 @@
+name: version-bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && !startsWith(github.event.pull_request.title, 'Bump version:')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.VERSION_BUMP_PAT }}
+          ref: ${{ github.event.pull_request.base.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install bump-my-version
+        run: pip install bump-my-version
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config commit.gpgsign false
+          git config tag.gpgsign false
+      - name: Bump version
+        env:
+          BUMP_LEVEL: ${{ contains(github.event.pull_request.labels.*.name, 'major') && 'major' || (contains(github.event.pull_request.labels.*.name, 'feature') && 'minor' || 'patch') }}
+        run: bump-my-version bump "$BUMP_LEVEL"
+      - name: Push commit and tag
+        run: |
+          git push "https://x-access-token:${{ secrets.VERSION_BUMP_PAT }}@github.com/${{ github.repository }}.git" HEAD:main
+          git push "https://x-access-token:${{ secrets.VERSION_BUMP_PAT }}@github.com/${{ github.repository }}.git" $(git describe --tags --abbrev=0 HEAD)
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.VERSION_BUMP_PAT }}
+        run: |
+          gh release create "$(git describe --tags --abbrev=0 HEAD)" --generate-notes
