@@ -48,6 +48,49 @@ After `wtree create ticket-123`, the directory looks like this:
 └── repo-backend/                 # main repo (main/master or bare)
 ```
 
+## Setup scripts
+
+`wtree` can run scripts to automate per-ticket setup (installing dependencies,
+creating env files, etc.) each time you `create` a workspace.
+
+- A top-level `setup_script` runs **once** per ticket, with the ticket
+  directory as the working directory (it can see every worktree).
+- A per-repository `setup_script` runs once in that repository's worktree
+  directory.
+
+```toml
+workspace_dir = "./.workspaces"
+
+# Runs once per ticket, from the ticket root directory.
+setup_script = "./scripts/workspace-setup.sh"
+
+[[repositories]]
+name = "frontend"
+path = "./repo-frontend"
+setup_script = "./scripts/setup-dev.sh"   # runs in frontend's worktree
+
+[[repositories]]
+name = "backend"
+path = "./repo-backend"
+```
+
+- Paths: relative top-level `setup_script` paths resolve against the directory
+  with `.workspaces.toml`; per-repository paths resolve against that repo's
+  worktree, so a script committed to the repo works right after checkout.
+- Scripts must be executable (`chmod +x`). Any language works — the shebang
+  decides (shell, Python, etc.). Output streams to your terminal.
+- A non-zero exit is reported as a warning but does not abort `create`.
+- Scripts receive context via environment variables:
+
+| Variable            | Global | Per-repo | Meaning                          |
+| ------------------- | :----: | :------: | -------------------------------- |
+| `WTREE_TICKET_ID`   |  yes   |   yes    | Ticket id being created          |
+| `WTREE_TICKET_DIR`  |  yes   |   yes    | Ticket root directory            |
+| `WTREE_REPOS`       |  yes   |          | JSON list of created worktrees   |
+| `WTREE_REPO_NAME`   |        |   yes    | Repository name                  |
+| `WTREE_WORKTREE_DIR`|        |   yes    | Repository's worktree directory  |
+| `WTREE_SOURCE_DIR`  |        |   yes    | Source repository directory      |
+
 ## Install
 
 You can install `wtree` with `pipx`, `pip`, or `uv`. Each supports installing from a specific release tag, the latest `main` branch, or a local clone.

@@ -25,6 +25,7 @@ wtree (short for **worktree**) is a configuration-driven CLI that manages git wo
 - `.github/workflows/ci.yml` — job `ci` (lint + format + tests) runs on push/PR; `main` branch protection requires it to pass.
 - `.github/workflows/version-bump.yml` — triggered only by a `pull_request` `closed` event on `main` where the PR was merged (direct pushes to `main` do NOT trigger it); runs `bump-my-version bump patch`, pushes the commit + `vX.Y.Z` tag directly to `main` using the `VERSION_BUMP_PAT` secret, and creates a GitHub release.
 - The bump workflow's job is guarded by `github.event.pull_request.merged == true` and skips PRs whose title starts with `Bump version:` (defense-in-depth against a bump commit going through a PR; the workflow's own direct push does not re-trigger it).
+- Bump level is label-driven: a PR labeled `major` bumps major, labeled `feature` bumps minor, otherwise patch (a missing label safely defaults to patch; `major` wins if both). The repo must have `feature` and `major` labels; apply them to the PR before merging.
 - `tag_name = "v{new_version}"` in `pyproject.toml` — at tag time `{current_version}` resolves to the *pre-bump* version, so it must NOT be used for the tag; `{new_version}` is the bumped one.
 - Branch protection on `main`: require PR + 1 approval + status checks; admin bypass is intentionally left on so the PAT push works.
 - Setup requires a fine-grained PAT (Contents: read/write on this repo) stored as the `VERSION_BUMP_PAT` Actions secret.
@@ -51,4 +52,5 @@ wtree (short for **worktree**) is a configuration-driven CLI that manages git wo
 - Per-repo failures (e.g. existing branch) must be reported but must NOT abort the remaining repos.
 - `create` ends by printing `Workspace <ticket-id> created.` followed by a copy-paste `cd <ticket-dir>` hint.
 - `clean` runs `git worktree remove <target>` per repo, then removes the ticket root dir only if empty.
+- Setup scripts (`setup_script` in config) run once per `create`, after the worktree loop: the top-level script in the ticket root dir, and each repo's script in its worktree (only for repos linked in this run). Scripts are any executable with a shebang; relative per-repo paths resolve against the worktree dir, global paths against cwd. Failures warn but do not abort (`wtree/setup.py`).
 - Test fixtures must set `git config commit.gpgsign false` — commits fail in headless environments when signing is enabled globally.

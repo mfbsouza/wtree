@@ -1,8 +1,13 @@
 workspace_dir = "./.workspaces"
 
+# Optional: run once per ticket after all worktrees are created (cwd = ticket dir).
+# setup_script = "./scripts/workspace-setup.sh"
+
 [[repositories]]
 name = "frontend"
 path = "./repo-frontend"
+# Optional: run once per ticket in this repo's worktree dir.
+# setup_script = "./scripts/setup-dev.sh"
 
 [[repositories]]
 name = "backend"
