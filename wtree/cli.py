@@ -1,8 +1,9 @@
+import json
 from pathlib import Path
 
 import click
 
-from wtree import config, git
+from wtree import config, git, setup
 
 
 def _config_error(message):
@@ -40,6 +41,7 @@ def create(ticket_id):
 
     click.secho(f"Creating multi-repo workspace for: {ticket_id}", fg="cyan", bold=True)
 
+    linked = []
     for repo in cfg.repositories:
         source_path = config.resolve_source_path(repo.path, Path.cwd())
         target_path = ticket_dir / repo.name
@@ -63,9 +65,66 @@ def create(ticket_id):
             continue
 
         click.secho(f"  Worktree linked at: {target_path}", fg="green")
+        linked.append((repo, source_path, target_path))
+
+    if linked:
+        _run_setup(cfg, Path.cwd(), ticket_id, ticket_dir, linked)
 
     click.echo(f"Workspace {ticket_id} created.")
     click.echo(f"cd {ticket_dir}")
+
+
+def _run_setup(cfg, cwd, ticket_id, ticket_dir, linked):
+    base_env = {
+        "WTREE_TICKET_ID": ticket_id,
+        "WTREE_TICKET_DIR": str(ticket_dir),
+    }
+
+    if cfg.setup_script:
+        script_path = config.resolve_source_path(cfg.setup_script, cwd)
+        click.echo("Running workspace setup script...")
+        repos_json = json.dumps(
+            [
+                {
+                    "name": repo.name,
+                    "worktree_dir": str(target_path),
+                    "source_dir": str(source_path),
+                }
+                for repo, source_path, target_path in linked
+            ]
+        )
+        env = {**base_env, "WTREE_REPOS": repos_json}
+        _report_setup("workspace", script_path, ticket_dir, env)
+
+    for repo, source_path, target_path in linked:
+        if not repo.setup_script:
+            continue
+        script_path = config.resolve_source_path(repo.setup_script, target_path)
+        click.echo(f"Running setup script for [{repo.name}]...")
+        env = {
+            **base_env,
+            "WTREE_REPO_NAME": repo.name,
+            "WTREE_WORKTREE_DIR": str(target_path),
+            "WTREE_SOURCE_DIR": str(source_path),
+        }
+        _report_setup(f"[{repo.name}]", script_path, target_path, env)
+
+
+def _report_setup(label, script_path, cwd, env):
+    try:
+        returncode = setup.run_script(script_path, cwd, env)
+    except setup.SetupError as e:
+        click.secho(f"  Setup script failed for {label}.\n  Reason: {e}", fg="red")
+        return
+
+    if returncode != 0:
+        click.secho(
+            f"  Setup script failed for {label} (exit code {returncode}).",
+            fg="red",
+        )
+        return
+
+    click.secho(f"  Setup complete for {label}.", fg="green")
 
 
 @cli.command()

@@ -8,10 +8,15 @@ DEFAULT_CONFIG = """\
 # Root directory for all ticket workspaces.
 workspace_dir = "./.workspaces"
 
+# Optional: run once per ticket after all worktrees are created (cwd = ticket dir).
+# setup_script = "./scripts/workspace-setup.sh"
+
 # Add one [[repositories]] block per repo you want a worktree for.
 [[repositories]]
 name = "frontend"
 path = "./repo-frontend"
+# Optional: run once per ticket in this repo's worktree dir.
+# setup_script = "./scripts/setup-dev.sh"
 
 [[repositories]]
 name = "backend"
@@ -27,21 +32,27 @@ class ConfigError(Exception):
 class Repository:
     name: str
     path: str
+    setup_script: str | None = None
 
 
 @dataclass(frozen=True)
 class WorkspaceConfig:
     workspace_dir: Path
     repositories: list[Repository]
+    setup_script: str | None = None
 
     @classmethod
     def from_dict(cls, data):
         workspace_dir = Path(data.get("workspace_dir", "./.workspaces"))
         repositories = [
-            Repository(name=repo["name"], path=repo["path"])
+            Repository(name=repo["name"], path=repo["path"], setup_script=repo.get("setup_script"))
             for repo in data.get("repositories", [])
         ]
-        return cls(workspace_dir=workspace_dir, repositories=repositories)
+        return cls(
+            workspace_dir=workspace_dir,
+            repositories=repositories,
+            setup_script=data.get("setup_script"),
+        )
 
     def ticket_dir(self, cwd: Path, ticket_id: str) -> Path:
         if self.workspace_dir.is_absolute():

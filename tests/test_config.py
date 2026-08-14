@@ -26,6 +26,24 @@ def test_from_dict_defaults_missing_fields():
 
     assert cfg.workspace_dir == Path("./.workspaces")
     assert cfg.repositories == []
+    assert cfg.setup_script is None
+
+
+def test_from_dict_parses_setup_scripts():
+    cfg = config.WorkspaceConfig.from_dict(
+        {
+            "workspace_dir": "./.workspaces",
+            "setup_script": "./scripts/workspace-setup.sh",
+            "repositories": [
+                {"name": "frontend", "path": "./repo-frontend", "setup_script": "setup-dev.sh"},
+                {"name": "backend", "path": "./repo-backend"},
+            ],
+        }
+    )
+
+    assert cfg.setup_script == "./scripts/workspace-setup.sh"
+    assert cfg.repositories[0].setup_script == "setup-dev.sh"
+    assert cfg.repositories[1].setup_script is None
 
 
 def test_load_config_missing_file_raises(tmp_path):
@@ -42,6 +60,22 @@ def test_load_config_parses_file(tmp_path):
 
     assert cfg.workspace_dir == Path("./ws")
     assert len(cfg.repositories) == 1
+
+
+def test_load_config_parses_setup_script(tmp_path):
+    (tmp_path / config.CONFIG_FILE).write_text(
+        'workspace_dir = "./ws"\n'
+        'setup_script = "./scripts/ws.sh"\n'
+        "[[repositories]]\n"
+        'name = "app"\n'
+        'path = "./repo-app"\n'
+        'setup_script = "scripts/app.sh"\n'
+    )
+
+    cfg = config.load_config(tmp_path)
+
+    assert cfg.setup_script == "./scripts/ws.sh"
+    assert cfg.repositories[0].setup_script == "scripts/app.sh"
 
 
 def test_ticket_dir_relative_to_cwd(tmp_path):
