@@ -80,6 +80,7 @@ def _run_setup(cfg, cwd, ticket_id, ticket_dir, linked):
     base_env = {
         "WTREE_TICKET_ID": ticket_id,
         "WTREE_TICKET_DIR": str(ticket_dir),
+        "WTREE_ROOT_DIR": str(cwd),
     }
 
     if cfg.setup_script:

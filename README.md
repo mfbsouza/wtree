@@ -25,6 +25,9 @@ path = "./repo-backend"
 ## Usage
 
 ```sh
+# show the installed version
+wtree --version
+
 # generate a starter .workspaces.toml in the current directory
 wtree init
 
@@ -33,6 +36,9 @@ wtree create <ticket-id>
 
 # remove the worktrees and clean up the workspace
 wtree clean <ticket-id>
+
+# force removal: delete branches, remove dirty worktrees, remove non-empty dirs
+wtree clean --force <ticket-id>
 ```
 
 After `wtree create ticket-123`, the directory looks like this:
@@ -86,6 +92,7 @@ path = "./repo-backend"
 | ------------------- | :----: | :------: | -------------------------------- |
 | `WTREE_TICKET_ID`   |  yes   |   yes    | Ticket id being created          |
 | `WTREE_TICKET_DIR`  |  yes   |   yes    | Ticket root directory            |
+| `WTREE_ROOT_DIR`    |  yes   |   yes    | Project root directory (cwd)     |
 | `WTREE_REPOS`       |  yes   |          | JSON list of created worktrees   |
 | `WTREE_REPO_NAME`   |        |   yes    | Repository name                  |
 | `WTREE_WORKTREE_DIR`|        |   yes    | Repository's worktree directory  |

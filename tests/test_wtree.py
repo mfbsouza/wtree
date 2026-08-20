@@ -273,7 +273,9 @@ def test_create_runs_global_setup_script_once(runner, tmp_path, source_repos):
     )
     write_script(
         cwd / "scripts" / "workspace-setup.sh",
-        '#!/bin/sh\necho "$WTREE_TICKET_ID" > setup-marker.txt\necho "run" >> counter.txt\n',
+        "#!/bin/sh\n"
+        'echo "$WTREE_TICKET_ID" > setup-marker.txt\n'
+        'echo "$WTREE_ROOT_DIR" > root-dir.txt\n',
     )
 
     result = invoke(runner, cwd, "create", "ticket-123")
@@ -283,7 +285,7 @@ def test_create_runs_global_setup_script_once(runner, tmp_path, source_repos):
     assert "Setup complete for workspace." in result.output
     ticket_dir = tmp_path / "workspaces" / "ticket-123"
     assert (ticket_dir / "setup-marker.txt").read_text().strip() == "ticket-123"
-    assert (ticket_dir / "counter.txt").read_text().splitlines() == ["run"]
+    assert (ticket_dir / "root-dir.txt").read_text().strip() == str(cwd)
 
 
 def test_create_runs_per_repo_setup_script_in_worktree(runner, tmp_path, source_repos):
