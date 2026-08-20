@@ -107,6 +107,14 @@ def test_missing_config_exits_with_message(runner, tmp_path):
     assert "Config file not found" in result.output
 
 
+def test_version_shows_version(runner, tmp_path):
+    from wtree import __version__
+
+    result = invoke(runner, tmp_path, "--version")
+    assert result.exit_code == 0
+    assert __version__ in result.output
+
+
 def test_init_creates_default_config(runner, tmp_path):
     import tomllib
 
