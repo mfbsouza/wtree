@@ -12,6 +12,7 @@ def _config_error(message):
 
 
 @click.group()
+@click.version_option(package_name="wtree")
 def cli():
     """Agile multi-repository git worktree manager."""
 
