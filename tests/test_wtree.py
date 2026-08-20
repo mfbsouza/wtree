@@ -189,6 +189,40 @@ def test_clean_removes_worktrees_and_ticket_root(runner, tmp_path, workspaces_co
         assert branch_exists(repo, "ticket-123")
 
 
+def test_clean_force_removes_dirty_worktree_and_branches(
+    runner, tmp_path, workspaces_config, source_repos
+):
+    cwd = workspaces_config.parent
+    invoke(runner, cwd, "create", "ticket-123")
+
+    worktree_dir = tmp_path / "workspaces" / "ticket-123" / "frontend"
+    (worktree_dir / "dirty.txt").write_text("uncommitted")
+
+    result = invoke(runner, cwd, "clean", "ticket-123", "--force")
+
+    assert result.exit_code == 0
+    assert "Removed worktree link for frontend" in result.output
+    assert "Deleted branch ticket-123 for frontend" in result.output
+    assert "Deleted branch ticket-123 for backend" in result.output
+    assert not (tmp_path / "workspaces" / "ticket-123").exists()
+    for _, repo in source_repos.items():
+        assert not branch_exists(repo, "ticket-123")
+
+
+def test_clean_force_removes_nonempty_ticket_dir(runner, tmp_path, workspaces_config, source_repos):
+    cwd = workspaces_config.parent
+    invoke(runner, cwd, "create", "ticket-123")
+
+    ticket_dir = tmp_path / "workspaces" / "ticket-123"
+    (ticket_dir / "extra-file.txt").write_text("leftover")
+
+    result = invoke(runner, cwd, "clean", "ticket-123", "--force")
+
+    assert result.exit_code == 0
+    assert "Removed ticket workspace directory." in result.output
+    assert not ticket_dir.exists()
+
+
 def test_create_with_absolute_and_relative_paths(runner, tmp_path):
     base = tmp_path
     repo = base / "source" / "repo-app"
