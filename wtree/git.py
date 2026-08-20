@@ -17,5 +17,13 @@ def add_worktree(source: Path, target: Path, branch: str) -> None:
     _run(source, "worktree", "add", str(target), "-b", branch)
 
 
-def remove_worktree(source: Path, target: Path) -> None:
-    _run(source, "worktree", "remove", str(target))
+def remove_worktree(source: Path, target: Path, force: bool = False) -> None:
+    args = ["worktree", "remove"]
+    if force:
+        args.append("--force")
+    args.append(str(target))
+    _run(source, *args)
+
+
+def delete_branch(source: Path, branch: str) -> None:
+    _run(source, "branch", "-D", branch)
