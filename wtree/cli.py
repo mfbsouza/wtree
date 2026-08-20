@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import click
@@ -12,6 +13,7 @@ def _config_error(message):
 
 
 @click.group()
+@click.version_option(package_name="wtree")
 def cli():
     """Agile multi-repository git worktree manager."""
 
@@ -78,6 +80,7 @@ def _run_setup(cfg, cwd, ticket_id, ticket_dir, linked):
     base_env = {
         "WTREE_TICKET_ID": ticket_id,
         "WTREE_TICKET_DIR": str(ticket_dir),
+        "WTREE_ROOT_DIR": str(cwd),
     }
 
     if cfg.setup_script:
@@ -129,7 +132,12 @@ def _report_setup(label, script_path, cwd, env):
 
 @cli.command()
 @click.argument("ticket_id")
-def clean(ticket_id):
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Force removal: delete branches and remove workdir even if dirty or non-empty.",
+)
+def clean(ticket_id, force):
     """Remove a multi-repo worktree workspace safely."""
     try:
         cfg = config.load_config(Path.cwd())
@@ -149,7 +157,7 @@ def clean(ticket_id):
             continue
 
         try:
-            git.remove_worktree(source_path, target_path)
+            git.remove_worktree(source_path, target_path, force=force)
         except git.GitError:
             click.secho(
                 f"  Could not remove worktree for {repo.name}. Uncommitted changes may exist.",
@@ -159,6 +167,19 @@ def clean(ticket_id):
 
         click.secho(f"  Removed worktree link for {repo.name}", fg="green")
 
-    if ticket_dir.exists() and not any(ticket_dir.iterdir()):
+        if force:
+            try:
+                git.delete_branch(source_path, ticket_id)
+                click.secho(f"  Deleted branch {ticket_id} for {repo.name}", fg="green")
+            except git.GitError:
+                click.secho(
+                    f"  Could not delete branch {ticket_id} for {repo.name}.",
+                    fg="red",
+                )
+
+    if force and ticket_dir.exists():
+        shutil.rmtree(ticket_dir)
+        click.echo("Removed ticket workspace directory.")
+    elif ticket_dir.exists() and not any(ticket_dir.iterdir()):
         ticket_dir.rmdir()
         click.echo("Removed empty ticket workspace root directory.")

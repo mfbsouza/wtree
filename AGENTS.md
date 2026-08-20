@@ -51,6 +51,7 @@ wtree (short for **worktree**) is a configuration-driven CLI that manages git wo
 - `git worktree add <target> -b <ticket-id>` is run with `cwd` set to the source repo dir.
 - Per-repo failures (e.g. existing branch) must be reported but must NOT abort the remaining repos.
 - `create` ends by printing `Workspace <ticket-id> created.` followed by a copy-paste `cd <ticket-dir>` hint.
-- `clean` runs `git worktree remove <target>` per repo, then removes the ticket root dir only if empty.
+- `clean` runs `git worktree remove <target>` per repo, then removes the ticket root dir only if empty. With `--force`, removes dirty worktrees (`--force`), deletes ticket branches (`git branch -D`), and removes the ticket dir even if non-empty (`shutil.rmtree`).
 - Setup scripts (`setup_script` in config) run once per `create`, after the worktree loop: the top-level script in the ticket root dir, and each repo's script in its worktree (only for repos linked in this run). Scripts are any executable with a shebang; relative per-repo paths resolve against the worktree dir, global paths against cwd. Failures warn but do not abort (`wtree/setup.py`).
 - Test fixtures must set `git config commit.gpgsign false` — commits fail in headless environments when signing is enabled globally.
+- When adding or changing commands, flags, or env variables, update AGENTS.md and README.md to reflect the new behavior.
