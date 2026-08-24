@@ -34,6 +34,9 @@ wtree init
 # create a branch + worktree for the ticket in every repo (prints a cd hint)
 wtree create <ticket-id>
 
+# same, but base every branch on the latest main/master of each repo (fetches first)
+wtree create <ticket-id> --latest
+
 # remove the worktrees and clean up the workspace
 wtree clean <ticket-id>
 
@@ -53,6 +56,13 @@ After `wtree create ticket-123`, the directory looks like this:
 ├── repo-frontend/                # main repo (main/master or bare)
 └── repo-backend/                 # main repo (main/master or bare)
 ```
+
+By default, new branches are cut from whatever commit the source repo currently
+has checked out. Pass `--latest` to base them on each repo's latest main/master
+instead: `wtree` detects the default branch (the remote's HEAD, falling back to
+`main`/`master` on the remote or locally), fetches it, and creates the ticket
+branch from it. If detection or the fetch fails for a repo (e.g. you are
+offline), it prints a warning and falls back to the repo's current HEAD.
 
 ## Setup scripts
 

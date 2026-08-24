@@ -32,7 +32,12 @@ def init(force):
 
 @cli.command()
 @click.argument("ticket_id")
-def create(ticket_id):
+@click.option(
+    "--latest",
+    is_flag=True,
+    help="Base each new branch on the latest main/master (fetches first).",
+)
+def create(ticket_id, latest):
     """Create a multi-repo worktree workspace."""
     try:
         cfg = config.load_config(Path.cwd())
@@ -57,8 +62,21 @@ def create(ticket_id):
 
         click.echo(f"Processing [{repo.name}]...")
 
+        start_point = None
+        if latest:
+            try:
+                start_point = git.latest_start_point(source_path)
+                click.secho(f"  Based on latest {start_point}.", fg="green")
+            except git.GitError as e:
+                click.secho(
+                    f"  Warning: Could not base {repo.name} on its latest default branch.\n"
+                    f"  Reason: {e}\n"
+                    "  Falling back to current HEAD.",
+                    fg="yellow",
+                )
+
         try:
-            git.add_worktree(source_path, target_path, ticket_id)
+            git.add_worktree(source_path, target_path, ticket_id, start_point)
         except git.GitError as e:
             click.secho(
                 f"  Failed to create worktree for {repo.name}.\n  Reason: {e}",

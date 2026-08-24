@@ -82,6 +82,12 @@ def write_script(path, content, executable=True):
     return path
 
 
+def commit_file(repo, name, content):
+    (repo / name).write_text(content)
+    run_git(repo, "add", name)
+    run_git(repo, "commit", "-q", "-m", f"add {name}")
+
+
 def repos_config(tmp_path, source_repos, extra=""):
     return (
         'workspace_dir = "{ws}"\n'
@@ -260,6 +266,94 @@ def test_create_with_absolute_and_relative_paths(runner, tmp_path):
     worktree = cwd / "out" / "workspaces" / "ticket-456" / "app"
     assert worktree.is_dir()
     assert branch_exists(repo, "ticket-456")
+
+
+def test_create_latest_bases_worktree_on_local_main(
+    runner, tmp_path, workspaces_config, source_repos
+):
+    cwd = workspaces_config.parent
+    frontend = source_repos["frontend"]
+    commit_file(frontend, "latest.txt", "newest")
+    run_git(frontend, "checkout", "--detach", "HEAD~1")
+
+    result = invoke(runner, cwd, "create", "ticket-123", "--latest")
+
+    assert result.exit_code == 0
+    assert "Based on latest main." in result.output
+    worktree = tmp_path / "workspaces" / "ticket-123" / "frontend"
+    assert (worktree / "latest.txt").exists()
+    assert branch_exists(frontend, "ticket-123")
+
+
+def test_create_without_latest_bases_worktree_on_head(
+    runner, tmp_path, workspaces_config, source_repos
+):
+    cwd = workspaces_config.parent
+    frontend = source_repos["frontend"]
+    commit_file(frontend, "latest.txt", "newest")
+    run_git(frontend, "checkout", "--detach", "HEAD~1")
+
+    result = invoke(runner, cwd, "create", "ticket-123")
+
+    assert result.exit_code == 0
+    worktree = tmp_path / "workspaces" / "ticket-123" / "frontend"
+    assert not (worktree / "latest.txt").exists()
+    assert branch_exists(frontend, "ticket-123")
+
+
+def test_create_latest_fetches_from_origin(runner, tmp_path, workspaces_config, source_repos):
+    cwd = workspaces_config.parent
+    frontend = source_repos["frontend"]
+    origin = tmp_path / "origin-frontend.git"
+    run_git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
+    run_git(frontend, "remote", "add", "origin", str(origin))
+    run_git(frontend, "push", "-q", "origin", "main")
+    run_git(frontend, "fetch", "-q", "origin")
+
+    clone = tmp_path / "clone-frontend"
+    run_git(tmp_path, "clone", "-q", str(origin), str(clone))
+    run_git(clone, "config", "user.email", "test@example.com")
+    run_git(clone, "config", "user.name", "Test")
+    run_git(clone, "config", "commit.gpgsign", "false")
+    commit_file(clone, "pushed.txt", "from origin")
+    run_git(clone, "push", "-q", "origin", "main")
+
+    result = invoke(runner, cwd, "create", "ticket-123", "--latest")
+
+    assert result.exit_code == 0
+    assert "Based on latest origin/main." in result.output
+    worktree = tmp_path / "workspaces" / "ticket-123" / "frontend"
+    assert (worktree / "pushed.txt").exists()
+
+
+def test_create_latest_warns_and_falls_back_when_no_default_branch(
+    runner, tmp_path, workspaces_config, source_repos
+):
+    repo = tmp_path / "source" / "repo-weird"
+    repo.mkdir(parents=True)
+    run_git(repo, "init", "-q", "-b", "trunk")
+    run_git(repo, "config", "user.email", "test@example.com")
+    run_git(repo, "config", "user.name", "Test")
+    run_git(repo, "config", "commit.gpgsign", "false")
+    (repo / "README.md").write_text("# weird\n")
+    run_git(repo, "add", ".")
+    run_git(repo, "commit", "-q", "-m", "initial commit")
+
+    cwd = write_config(
+        tmp_path / "cwd",
+        ('workspace_dir = "{ws}"\n\n[[repositories]]\nname = "weird"\npath = "{repo}"\n').format(
+            ws=tmp_path / "workspaces", repo=repo
+        ),
+    )
+
+    result = invoke(runner, cwd, "create", "ticket-123", "--latest")
+
+    assert result.exit_code == 0
+    assert "Warning: Could not base weird on its latest default branch." in result.output
+    assert "Falling back to current HEAD." in result.output
+    worktree = tmp_path / "workspaces" / "ticket-123" / "weird"
+    assert worktree.is_dir()
+    assert branch_exists(repo, "ticket-123")
 
 
 def test_create_runs_global_setup_script_once(runner, tmp_path, source_repos):
