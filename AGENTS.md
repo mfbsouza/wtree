@@ -49,6 +49,7 @@ wtree (short for **worktree**) is a configuration-driven CLI that manages git wo
 - Config paths are resolved against the current working directory; absolute paths are also accepted.
 - Missing `.workspaces.toml` must print an error to stderr and exit with code 1.
 - `git worktree add <target> -b <ticket-id>` is run with `cwd` set to the source repo dir.
+- `create --latest` detects each repo's default branch — remote HEAD symref (`refs/remotes/<remote>/HEAD`, preferring the `origin` remote), then `<remote>/main` / `<remote>/master` (fetched), then local `main` / `master` when no remote exists — and passes it as the worktree start point (`wtree/git.py:latest_start_point`). If detection or fetch fails for a repo, it prints a warning and falls back to HEAD-based creation without aborting the remaining repos.
 - Per-repo failures (e.g. existing branch) must be reported but must NOT abort the remaining repos.
 - `create` ends by printing `Workspace <ticket-id> created.` followed by a copy-paste `cd <ticket-dir>` hint.
 - `clean` runs `git worktree remove <target>` per repo, then removes the ticket root dir only if empty. With `--force`, removes dirty worktrees (`--force`), deletes ticket branches (`git branch -D`), and removes the ticket dir even if non-empty (`shutil.rmtree`).
