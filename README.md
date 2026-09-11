@@ -2,10 +2,6 @@
 
 wtree stands for **worktree**. It is a CLI tool developed to help manage git worktrees across a multi-repo project.
 
-## Documentation
-
-Developer and contributor documentation lives in [docs/](docs/README.md) — architecture, CLI reference, configuration reference, contributing, testing, and the release pipeline.
-
 ## What it does
 
 Given a `.workspaces.toml` config that lists your repositories, `wtree` creates (or cleans up) a git worktree for a ticket in every repo, so you can open one IDE window and work on the same feature across all repositories.
@@ -154,6 +150,10 @@ uv tool install "git+https://github.com/mfbsouza/wtree.git"
 # local clone
 uv tool install --editable /path/to/wtree
 ```
+
+## Documentation
+
+Developer and contributor documentation lives in [docs/](docs/README.md) — architecture, CLI reference, configuration reference, contributing, testing, and the release pipeline.
 
 ## Disclaimer
 
