@@ -151,6 +151,10 @@ uv tool install "git+https://github.com/mfbsouza/wtree.git"
 uv tool install --editable /path/to/wtree
 ```
 
+## Documentation
+
+Developer and contributor documentation lives in [docs/](docs/README.md) — architecture, CLI reference, configuration reference, contributing, testing, and the release pipeline.
+
 ## Disclaimer
 
 This project was developed with the assistance of AI tools. It is provided as-is, without warranty of any kind. Licensed under the MIT License.
