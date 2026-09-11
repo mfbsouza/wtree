@@ -87,15 +87,15 @@ Key properties:
 ```mermaid
 sequenceDiagram
     participant CLI as "click create command"
-    participant Loop as "asyncio event loop (single thread)"
+    participant EventLoop as "asyncio event loop (single thread)"
     participant R1 as "repo-frontend coroutine"
     participant R2 as "repo-backend coroutine"
     participant G1 as "git frontend (OS process)"
     participant G2 as "git backend (OS process)"
 
-    CLI->>Loop: asyncio.gather(process_repo(x) for each repo)
-    Loop->>R1: start coroutine
-    Loop->>R2: start coroutine
+    CLI->>EventLoop: asyncio.gather(process_repo(x) for each repo)
+    EventLoop->>R1: start coroutine
+    EventLoop->>R2: start coroutine
     R1->>G1: spawn `git fetch origin main`
     R2->>G2: spawn `git fetch origin main`
     Note over R1,R2: both git processes run in parallel at the OS level
@@ -105,9 +105,9 @@ sequenceDiagram
     R1->>G1: spawn `git worktree add ...`
     G1-->>R1: worktree created
     R2-->>G2: worktree created
-    R1-->>Loop: return result
-    R2-->>Loop: return result
-    Loop-->>CLI: gather returns (in config order)
+    R1-->>EventLoop: return result
+    R2-->>EventLoop: return result
+    EventLoop-->>CLI: gather returns (in config order)
 ```
 
 What this model does and does not mean:
