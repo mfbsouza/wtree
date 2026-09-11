@@ -1,3 +1,4 @@
+import asyncio
 import json
 import shutil
 from pathlib import Path
@@ -10,6 +11,75 @@ from wtree import config, git, setup
 def _config_error(message):
     click.secho(f"Error: {message}", fg="red", err=True)
     raise click.exceptions.Exit(1)
+
+
+async def _create_async(ticket_id, latest):
+    """Async implementation of the create command with concurrent repo processing."""
+    try:
+        cfg = config.load_config(Path.cwd())
+    except config.ConfigError as e:
+        _config_error(e)
+
+    ticket_dir = cfg.ticket_dir(Path.cwd(), ticket_id)
+
+    click.secho(f"Creating multi-repo workspace for: {ticket_id}", fg="cyan", bold=True)
+
+    async def process_repo(repo):
+        source_path = config.resolve_source_path(repo.path, Path.cwd())
+        target_path = ticket_dir / repo.name
+
+        if not source_path.exists():
+            click.secho(
+                f"Warning: Skipping [{repo.name}]: Source path missing at {source_path}",
+                fg="yellow",
+            )
+            return None
+
+        click.echo(f"Processing [{repo.name}]...")
+
+        start_point = None
+        if latest:
+            try:
+                start_point = await git.a_latest_start_point(source_path)
+                click.secho(f"  Based on latest {start_point}.", fg="green")
+            except git.GitError as e:
+                click.secho(
+                    f"  Warning: Could not base {repo.name} on its latest default branch.\n"
+                    f"  Reason: {e}\n"
+                    "  Falling back to current HEAD.",
+                    fg="yellow",
+                )
+
+        try:
+            await git.a_add_worktree(source_path, target_path, ticket_id, start_point)
+        except git.GitError as e:
+            click.secho(
+                f"  Failed to create worktree for {repo.name}.\n  Reason: {e}",
+                fg="red",
+            )
+            return None
+
+        click.secho(f"  Worktree linked at: {target_path}", fg="green")
+        return (repo, source_path, target_path)
+
+    tasks = [process_repo(repo) for repo in cfg.repositories]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    linked = []
+    for repo, result in zip(cfg.repositories, results, strict=True):
+        if isinstance(result, Exception):
+            click.secho(
+                f"  Failed to create worktree for {repo.name}.\n  Reason: {result}",
+                fg="red",
+            )
+        elif result is not None:
+            linked.append(result)
+
+    if linked:
+        _run_setup(cfg, Path.cwd(), ticket_id, ticket_dir, linked)
+
+    click.echo(f"Workspace {ticket_id} created.")
+    click.echo(f"cd {ticket_dir}")
 
 
 @click.group()
@@ -39,59 +109,7 @@ def init(force):
 )
 def create(ticket_id, latest):
     """Create a multi-repo worktree workspace."""
-    try:
-        cfg = config.load_config(Path.cwd())
-    except config.ConfigError as e:
-        _config_error(e)
-
-    ticket_dir = cfg.ticket_dir(Path.cwd(), ticket_id)
-
-    click.secho(f"Creating multi-repo workspace for: {ticket_id}", fg="cyan", bold=True)
-
-    linked = []
-    for repo in cfg.repositories:
-        source_path = config.resolve_source_path(repo.path, Path.cwd())
-        target_path = ticket_dir / repo.name
-
-        if not source_path.exists():
-            click.secho(
-                f"Warning: Skipping [{repo.name}]: Source path missing at {source_path}",
-                fg="yellow",
-            )
-            continue
-
-        click.echo(f"Processing [{repo.name}]...")
-
-        start_point = None
-        if latest:
-            try:
-                start_point = git.latest_start_point(source_path)
-                click.secho(f"  Based on latest {start_point}.", fg="green")
-            except git.GitError as e:
-                click.secho(
-                    f"  Warning: Could not base {repo.name} on its latest default branch.\n"
-                    f"  Reason: {e}\n"
-                    "  Falling back to current HEAD.",
-                    fg="yellow",
-                )
-
-        try:
-            git.add_worktree(source_path, target_path, ticket_id, start_point)
-        except git.GitError as e:
-            click.secho(
-                f"  Failed to create worktree for {repo.name}.\n  Reason: {e}",
-                fg="red",
-            )
-            continue
-
-        click.secho(f"  Worktree linked at: {target_path}", fg="green")
-        linked.append((repo, source_path, target_path))
-
-    if linked:
-        _run_setup(cfg, Path.cwd(), ticket_id, ticket_dir, linked)
-
-    click.echo(f"Workspace {ticket_id} created.")
-    click.echo(f"cd {ticket_dir}")
+    asyncio.run(_create_async(ticket_id, latest))
 
 
 def _run_setup(cfg, cwd, ticket_id, ticket_dir, linked):
