@@ -1,3 +1,4 @@
+import asyncio
 import subprocess
 from pathlib import Path
 
@@ -80,6 +81,82 @@ def latest_start_point(source: Path) -> str:
             last_error = str(e)
             continue
         if _ref_exists(source, f"refs/remotes/{remote}/{branch}"):
+            return f"{remote}/{branch}"
+    detail = f": {last_error}" if last_error else ""
+    raise GitError(f"Could not fetch a main or master branch from '{remote}'{detail}")
+
+
+# ---------------------------------------------------------------------------
+# Async helpers – same semantics, non-blocking subprocess execution
+# ---------------------------------------------------------------------------
+
+
+async def _arun(source: Path, *args) -> str:
+    proc = await asyncio.create_subprocess_exec(
+        "git", *args, cwd=source, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise GitError(stderr.decode().strip())
+    return stdout.decode().strip()
+
+
+async def _atry_run(source: Path, *args) -> str | None:
+    proc = await asyncio.create_subprocess_exec(
+        "git", *args, cwd=source, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    stdout, _ = await proc.communicate()
+    if proc.returncode != 0:
+        return None
+    return stdout.decode().strip()
+
+
+async def _aref_exists(source: Path, ref: str) -> bool:
+    return (await _atry_run(source, "show-ref", "--verify", "--quiet", ref)) is not None
+
+
+async def _afirst_remote(source: Path) -> str | None:
+    out = await _atry_run(source, "remote")
+    if not out:
+        return None
+    remotes = out.splitlines()
+    if "origin" in remotes:
+        return "origin"
+    return remotes[0]
+
+
+async def a_add_worktree(
+    source: Path, target: Path, branch: str, start_point: str | None = None
+) -> None:
+    args = ["worktree", "add", str(target), "-b", branch]
+    if start_point:
+        args.append(start_point)
+    await _arun(source, *args)
+
+
+async def a_latest_start_point(source: Path) -> str:
+    """Async version of latest_start_point."""
+    remote = await _afirst_remote(source)
+    if remote is None:
+        for branch in ("main", "master"):
+            if await _aref_exists(source, f"refs/heads/{branch}"):
+                return branch
+        raise GitError("Could not detect a main or master branch")
+
+    symref = await _atry_run(source, "symbolic-ref", "--short", f"refs/remotes/{remote}/HEAD")
+    candidates = []
+    if symref and symref.startswith(f"{remote}/"):
+        candidates.append(symref[len(remote) + 1 :])
+    candidates.extend(b for b in ("main", "master") if b not in candidates)
+
+    last_error = ""
+    for branch in candidates:
+        try:
+            await _arun(source, "fetch", "--quiet", remote, branch)
+        except GitError as e:
+            last_error = str(e)
+            continue
+        if await _aref_exists(source, f"refs/remotes/{remote}/{branch}"):
             return f"{remote}/{branch}"
     detail = f": {last_error}" if last_error else ""
     raise GitError(f"Could not fetch a main or master branch from '{remote}'{detail}")
